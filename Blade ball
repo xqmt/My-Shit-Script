@@ -365,8 +365,8 @@ local ui = loadstring(game:HttpGet(
 env.oxymod_shitaro_ui = ui
 
 local window = ui:window({
-    title = "Series",
-    script = "Series.lol",
+    title = "Solstice",
+    script = "Solstice",
     folder = "forever",
     key = "Insert",
     size = {820, 500},
