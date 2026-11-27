@@ -3749,6 +3749,8 @@ end
 -- ═══════════════════════════════════════════════════════════
 -- BALL STATS
 -- ═══════════════════════════════════════════════════════════
+local setBallStatsEnabled = nil
+
 do
     local ScreenGui = nil
     local peakSpeeds = {}
@@ -3769,135 +3771,55 @@ do
 
         if not enabled or not _G.oxymod then return end
 
-        local parentGui = (type(gethui) == "function" and pcall(gethui) and gethui()) or localPlayer:WaitForChild("PlayerGui")
         ScreenGui = createGuiInstance("ScreenGui", {
-            Name = "OxymodBallStatsHUD",
-            Parent = parentGui,
+            Parent = localPlayer:WaitForChild("PlayerGui"),
             ResetOnSpawn = false,
-            ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
         })
-
-        local Card = createGuiInstance("Frame", {
-            Name = "BallStatusCard",
-            Size = createUDim2(0, 212, 0, 70),
-            Position = createUDim2(0.74, 0, 0.12, 0),
-            BackgroundColor3 = colorFromRGB(14, 16, 20),
-            BackgroundTransparency = 0,
-            BorderSizePixel = 0,
-            Active = true,
-            Draggable = true,
+        local TextLabel = createGuiInstance("TextLabel", {
+            Size = createUDim2(0.2, 0, 0.05, 0),
+            Position = createUDim2(0.7, 0, 0.1, 0),
+            TextSize = 26,
+            BackgroundTransparency = 1,
+            TextColor3 = Color3.new(1, 1, 1),
+            Font = Enum.Font.Fantasy,
+            Text = "waiting...",
             Parent = ScreenGui,
         })
 
-        createGuiInstance("UICorner", {
-            CornerRadius = createUDim(0, 12),
-            Parent = Card,
-        })
-
-        local Stroke = createGuiInstance("UIStroke", {
-            Color = colorFromRGB(0, 0, 0),
-            Thickness = 1,
-            Transparency = 0,
-            Parent = Card,
-        })
-
-        local HeaderLbl = createGuiInstance("TextLabel", {
-            Size = createUDim2(1, -24, 0, 14),
-            Position = createUDim2(0, 12, 0, 10),
-            BackgroundTransparency = 1,
-            Text = "BALL STATUS",
-            TextColor3 = colorFromRGB(148, 163, 184),
-            TextSize = 10,
-            Font = Enum.Font.GothamBold,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            Parent = Card,
-        })
-
-        local SpeedLbl = createGuiInstance("TextLabel", {
-            Size = createUDim2(0.56, -12, 0, 26),
-            Position = createUDim2(0, 12, 0, 28),
-            BackgroundTransparency = 1,
-            Text = "0",
-            TextColor3 = colorFromRGB(248, 250, 252),
-            TextSize = 20,
-            Font = Enum.Font.GothamBold,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            Parent = Card,
-        })
-
-        local SpeedUnitLbl = createGuiInstance("TextLabel", {
-            Size = createUDim2(0, 60, 0, 12),
-            Position = createUDim2(0, 12, 0, 52),
-            BackgroundTransparency = 1,
-            Text = "SPEED",
-            TextColor3 = colorFromRGB(100, 116, 139),
-            TextSize = 9,
-            Font = Enum.Font.GothamMedium,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            Parent = Card,
-        })
-
-        local PeakValLbl = createGuiInstance("TextLabel", {
-            Size = createUDim2(0.44, -12, 0, 26),
-            Position = createUDim2(0.56, 0, 0, 28),
-            BackgroundTransparency = 1,
-            Text = "0",
-            TextColor3 = colorFromRGB(248, 250, 252),
-            TextSize = 20,
-            Font = Enum.Font.GothamBold,
-            TextXAlignment = Enum.TextXAlignment.Right,
-            Parent = Card,
-        })
-
-        local PeakUnitLbl = createGuiInstance("TextLabel", {
-            Size = createUDim2(0.44, -12, 0, 12),
-            Position = createUDim2(0.56, 0, 0, 52),
-            BackgroundTransparency = 1,
-            Text = "PEAK",
-            TextColor3 = colorFromRGB(100, 116, 139),
-            TextSize = 9,
-            Font = Enum.Font.GothamMedium,
-            TextXAlignment = Enum.TextXAlignment.Right,
-            Parent = Card,
-        })
-
         runtimeConnections.ball_stats = heartbeat:Connect(function()
-            if not config.ball_debug or not _G.oxymod or not Card or not Card.Parent then return end
+            if not config.ball_debug or not _G.oxymod then return end
             local list = ballState.get_all()
             if #list == 0 then
-                SpeedLbl.Text = "0"
-                PeakValLbl.Text = "0"
-                SpeedLbl.TextColor3 = colorFromRGB(248, 250, 252)
-                PeakValLbl.TextColor3 = colorFromRGB(248, 250, 252)
-                Stroke.Color = colorFromRGB(45, 52, 64)
+                TextLabel.Text = "waiting..."
+                TextLabel.TextColor3 = Color3.new(1, 1, 1)
                 return
             end
-
             local activeSet = {}
             for _, b in ipairs(list) do activeSet[b] = true end
             for k in pairs(peakSpeeds) do
                 if not activeSet[k] then peakSpeeds[k] = nil end
             end
-
-            local maxPeak = 0
-            local curSpeed = 0
+            local maxSpd = 0
+            local fastestBall = nil
             for _, b in ipairs(list) do
                 local z = b:FindFirstChild("zoomies")
-                local nowSpd = z and z.VectorVelocity.Magnitude or b.AssemblyLinearVelocity.Magnitude
-                local peak = maxValue(peakSpeeds[b] or 0, nowSpd)
-                peakSpeeds[b] = peak
-                if peak >= maxPeak then
-                    maxPeak = peak
-                    curSpeed = nowSpd
+                if z then
+                    local spd = maxValue(peakSpeeds[b] or 0, z.VectorVelocity.Magnitude)
+                    peakSpeeds[b] = spd
+                    if spd > maxSpd then
+                        maxSpd = spd
+                        fastestBall = b
+                    end
                 end
             end
-
-            local isLimit = maxPeak >= 2200
-            SpeedLbl.Text = formatString("%.0f", curSpeed)
-            PeakValLbl.Text = formatString("%.0f", maxPeak)
-            SpeedLbl.TextColor3 = isLimit and colorFromRGB(248, 113, 113) or colorFromRGB(248, 250, 252)
-            PeakValLbl.TextColor3 = isLimit and colorFromRGB(248, 113, 113) or colorFromRGB(248, 250, 252)
-            Stroke.Color = isLimit and colorFromRGB(239, 68, 68) or colorFromRGB(45, 52, 64)
+            if fastestBall then
+                local isLimit = maxSpd >= 2200
+                TextLabel.Text = formatString("ball velocity: %.0f", maxSpd) .. (isLimit and " (LIMIT!)" or "")
+                TextLabel.TextColor3 = isLimit and Color3.new(1, 0, 0) or Color3.new(1, 1, 1)
+            else
+                TextLabel.Text = "waiting..."
+                TextLabel.TextColor3 = Color3.new(1, 1, 1)
+            end
         end)
     end
 
